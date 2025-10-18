@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/saleh-ghazimoradi/FilmFetch/config"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/server"
 	"github.com/saleh-ghazimoradi/FilmFetch/utils"
 	"log/slog"
 	"os"
@@ -50,6 +51,23 @@ var httpCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		}()
+
+		httpServer := server.NewServer(
+			server.WithHost(cfg.Server.Host),
+			server.WithPort(cfg.Server.Port),
+			server.WithHandler(nil),
+			server.WithIdleTimeout(cfg.Server.IdleTimeout),
+			server.WithReadTimeout(cfg.Server.ReadTimeout),
+			server.WithWriteTimeout(cfg.Server.WriteTimeout),
+			server.WithErrorLog(slog.NewLogLogger(logger.Handler(), slog.LevelError)),
+		)
+
+		logger.Info("starting server", "addr", cfg.Server.Host+":"+cfg.Server.Port, "env", cfg.Application.Environment)
+
+		if err := httpServer.Connect(); err != nil {
+			logger.Error(err.Error())
+			os.Exit(1)
+		}
 	},
 }
 
