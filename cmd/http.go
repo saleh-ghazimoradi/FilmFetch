@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"github.com/saleh-ghazimoradi/FilmFetch/config"
 	"github.com/saleh-ghazimoradi/FilmFetch/utils"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -16,12 +17,15 @@ var httpCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("http called")
 
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 		cfg, err := config.NewConfig()
 		if err != nil {
-			log.Fatalf("Error loading config: %v", err)
+			logger.Error(err.Error())
+			os.Exit(1)
 		}
 
-		posgresql := utils.NewPostgresql(
+		postgresql := utils.NewPostgresql(
 			utils.WithHost(cfg.Postgresql.Host),
 			utils.WithPort(cfg.Postgresql.Port),
 			utils.WithUser(cfg.Postgresql.User),
@@ -33,11 +37,19 @@ var httpCmd = &cobra.Command{
 			utils.WithSSLMode(cfg.Postgresql.SSLMode),
 			utils.WithTimeout(cfg.Postgresql.Timeout),
 		)
-		postDB, err := posgresql.Connect()
+
+		db, err := postgresql.Connect()
 		if err != nil {
-			log.Fatalf("Error connecting to PostgreSQL: %v", err)
+			logger.Error(err.Error())
+			os.Exit(1)
 		}
-		fmt.Println(postDB)
+
+		defer func() {
+			if err := db.Close(); err != nil {
+				logger.Error(err.Error())
+				os.Exit(1)
+			}
+		}()
 	},
 }
 
