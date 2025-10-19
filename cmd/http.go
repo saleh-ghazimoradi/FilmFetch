@@ -3,6 +3,10 @@ package cmd
 import (
 	"fmt"
 	"github.com/saleh-ghazimoradi/FilmFetch/config"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/gateway/handlers"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/gateway/routes"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/helper"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/middleware"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/server"
 	"github.com/saleh-ghazimoradi/FilmFetch/utils"
 	"log/slog"
@@ -52,10 +56,24 @@ var httpCmd = &cobra.Command{
 			}
 		}()
 
+		customError := helper.NewCustomErr(logger)
+		middleWare := middleware.NewMiddleware(customError)
+		healthHandler := handlers.NewHealthHandler(cfg, logger, customError)
+		healthRoutes := routes.NewHealthRoute(healthHandler)
+		movieHandler := handlers.NewMovieHandler(logger, customError)
+		movieRoutes := routes.NewMovieRoutes(movieHandler)
+
+		registerRoutes := routes.NewRegister(
+			routes.WithCustomError(customError),
+			routes.WithMiddleware(middleWare),
+			routes.WithHealthRoutes(healthRoutes),
+			routes.WithMovieRoutes(movieRoutes),
+		)
+
 		httpServer := server.NewServer(
 			server.WithHost(cfg.Server.Host),
 			server.WithPort(cfg.Server.Port),
-			server.WithHandler(nil),
+			server.WithHandler(registerRoutes.RegisterRoutes()),
 			server.WithIdleTimeout(cfg.Server.IdleTimeout),
 			server.WithReadTimeout(cfg.Server.ReadTimeout),
 			server.WithWriteTimeout(cfg.Server.WriteTimeout),
