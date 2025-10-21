@@ -1,21 +1,48 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
-	"github.com/saleh-ghazimoradi/FilmFetch/internal/domain"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/dto"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/helper"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/repository"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/service"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/validator"
 	"log/slog"
 	"net/http"
-	"time"
 )
 
 type MovieHandler struct {
-	logger      *slog.Logger
-	customError *helper.CustomError
+	logger       *slog.Logger
+	customError  *helper.CustomError
+	validator    *validator.Validator
+	movieService service.MovieService
 }
 
 func (m *MovieHandler) CreateMovie(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "create a new movie")
+	var payload *dto.Movie
+	if err := helper.ReadJSON(w, r, &payload); err != nil {
+		m.customError.BadRequestResponse(w, r, err)
+		return
+	}
+
+	if dto.ValidateMovie(m.validator, payload); !m.validator.Valid() {
+		m.customError.FailedValidationResponse(w, r, m.validator.Errors)
+		return
+	}
+
+	movie, err := m.movieService.CreateMovie(r.Context(), payload)
+	if err != nil {
+		m.customError.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/movies/%d", movie.Id))
+
+	if err = helper.WriteJSON(w, http.StatusCreated, helper.Envelope{"movie": movie}, headers); err != nil {
+		m.customError.ServerErrorResponse(w, r, err)
+	}
 }
 
 func (m *MovieHandler) GetMovieById(w http.ResponseWriter, r *http.Request) {
@@ -25,14 +52,15 @@ func (m *MovieHandler) GetMovieById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	movie := &domain.Movie{
-		Id:        id,
-		CreatedAt: time.Now(),
-		Title:     "BlackList",
-		Year:      2010,
-		Runtime:   1560,
-		Genres:    []string{"criminal", "FBI"},
-		Version:   1,
+	movie, err := m.movieService.GetMovieById(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrRecordNotFound):
+			m.customError.NotFoundResponse(w, r)
+		default:
+			m.customError.ServerErrorResponse(w, r, err)
+		}
+		return
 	}
 
 	if err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"movie": movie}, nil); err != nil {
@@ -40,9 +68,62 @@ func (m *MovieHandler) GetMovieById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewMovieHandler(logger *slog.Logger, customError *helper.CustomError) *MovieHandler {
+func (m *MovieHandler) UpdateMovie(w http.ResponseWriter, r *http.Request) {
+	id, err := helper.ReadIdParam(r)
+	if err != nil {
+		m.customError.NotFoundResponse(w, r)
+		return
+	}
+
+	var payload *dto.UpdateMovie
+	if err = helper.ReadJSON(w, r, &payload); err != nil {
+		m.customError.BadRequestResponse(w, r, err)
+		return
+	}
+
+	if dto.ValidateUpdateMovie(m.validator, payload); !m.validator.Valid() {
+		m.customError.FailedValidationResponse(w, r, m.validator.Errors)
+		return
+	}
+
+	updatedMovie, err := m.movieService.UpdateMovie(r.Context(), id, payload)
+	if err != nil {
+		m.customError.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	if err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"movie": updatedMovie}, nil); err != nil {
+		m.customError.ServerErrorResponse(w, r, err)
+	}
+}
+
+func (m *MovieHandler) DeleteMovie(w http.ResponseWriter, r *http.Request) {
+	id, err := helper.ReadIdParam(r)
+	if err != nil {
+		m.customError.NotFoundResponse(w, r)
+		return
+	}
+
+	if err = m.movieService.DeleteMovie(r.Context(), id); err != nil {
+		switch {
+		case errors.Is(err, repository.ErrRecordNotFound):
+			m.customError.NotFoundResponse(w, r)
+		default:
+			m.customError.ServerErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	if err := helper.WriteJSON(w, http.StatusOK, helper.Envelope{"message": "movie successfully deleted"}, nil); err != nil {
+		m.customError.ServerErrorResponse(w, r, err)
+	}
+}
+
+func NewMovieHandler(logger *slog.Logger, customError *helper.CustomError, validator *validator.Validator, movieService service.MovieService) *MovieHandler {
 	return &MovieHandler{
-		logger:      logger,
-		customError: customError,
+		logger:       logger,
+		customError:  customError,
+		validator:    validator,
+		movieService: movieService,
 	}
 }

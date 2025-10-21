@@ -19,15 +19,17 @@ type movieService struct {
 }
 
 func (m *movieService) CreateMovie(ctx context.Context, input *dto.Movie) (*domain.Movie, error) {
-	var movie *domain.Movie
-	if err := m.movieRepository.CreateMovie(ctx, &domain.Movie{
+	movie := &domain.Movie{
 		Title:   input.Title,
 		Year:    input.Year,
 		Runtime: input.Runtime,
 		Genres:  input.Genres,
-	}); err != nil {
+	}
+
+	if err := m.movieRepository.CreateMovie(ctx, movie); err != nil {
 		return nil, err
 	}
+
 	return movie, nil
 }
 

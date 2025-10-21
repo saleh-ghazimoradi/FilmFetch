@@ -7,7 +7,10 @@ import (
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/gateway/routes"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/helper"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/middleware"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/repository"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/server"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/service"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/validator"
 	"github.com/saleh-ghazimoradi/FilmFetch/utils"
 	"log/slog"
 	"os"
@@ -58,9 +61,12 @@ var httpCmd = &cobra.Command{
 
 		customError := helper.NewCustomErr(logger)
 		middleWare := middleware.NewMiddleware(customError)
+		validate := validator.NewValidator()
 		healthHandler := handlers.NewHealthHandler(cfg, logger, customError)
 		healthRoutes := routes.NewHealthRoute(healthHandler)
-		movieHandler := handlers.NewMovieHandler(logger, customError)
+		movieRepository := repository.NewMovieRepository(db, db)
+		movieService := service.NewMovieService(movieRepository)
+		movieHandler := handlers.NewMovieHandler(logger, customError, validate, movieService)
 		movieRoutes := routes.NewMovieRoutes(movieHandler)
 
 		registerRoutes := routes.NewRegister(
