@@ -88,7 +88,12 @@ func (m *MovieHandler) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 
 	updatedMovie, err := m.movieService.UpdateMovie(r.Context(), id, payload)
 	if err != nil {
-		m.customError.ServerErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, repository.ErrEditConflict):
+			m.customError.EditConflictResponse(w, r)
+		default:
+			m.customError.ServerErrorResponse(w, r, err)
+		}
 		return
 	}
 

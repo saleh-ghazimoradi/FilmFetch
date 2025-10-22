@@ -13,7 +13,7 @@ type MovieRoutes struct {
 func (m *MovieRoutes) MovieRoute(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodPost, "/v1/movies", m.movieHandler.CreateMovie)
 	router.HandlerFunc(http.MethodGet, "/v1/movies/:id", m.movieHandler.GetMovieById)
-	router.HandlerFunc(http.MethodPut, "/v1/movies/:id", m.movieHandler.UpdateMovie)
+	router.HandlerFunc(http.MethodPatch, "/v1/movies/:id", m.movieHandler.UpdateMovie)
 	router.HandlerFunc(http.MethodDelete, "/v1/movies/:id", m.movieHandler.DeleteMovie)
 }
 

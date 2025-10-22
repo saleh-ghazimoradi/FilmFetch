@@ -51,6 +51,11 @@ func (c *CustomError) FailedValidationResponse(w http.ResponseWriter, r *http.Re
 	c.ErrorResponse(w, r, http.StatusUnprocessableEntity, errors)
 }
 
+func (c *CustomError) EditConflictResponse(w http.ResponseWriter, r *http.Request) {
+	message := "unable to update the record due to an edit conflict, please try again"
+	c.ErrorResponse(w, r, http.StatusConflict, message)
+}
+
 func NewCustomErr(logger *slog.Logger) *CustomError {
 	return &CustomError{
 		logger: logger,
