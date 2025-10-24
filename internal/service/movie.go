@@ -10,6 +10,7 @@ import (
 type MovieService interface {
 	CreateMovie(ctx context.Context, input *dto.Movie) (*domain.Movie, error)
 	GetMovieById(ctx context.Context, id int64) (*domain.Movie, error)
+	GetMovies(ctx context.Context, queryString *dto.QueryMovie) ([]*domain.Movie, dto.Metadata, error)
 	UpdateMovie(ctx context.Context, id int64, input *dto.UpdateMovie) (*domain.Movie, error)
 	DeleteMovie(ctx context.Context, id int64) error
 }
@@ -35,6 +36,10 @@ func (m *movieService) CreateMovie(ctx context.Context, input *dto.Movie) (*doma
 
 func (m *movieService) GetMovieById(ctx context.Context, id int64) (*domain.Movie, error) {
 	return m.movieRepository.GetMovieById(ctx, id)
+}
+
+func (m *movieService) GetMovies(ctx context.Context, queryString *dto.QueryMovie) ([]*domain.Movie, dto.Metadata, error) {
+	return m.movieRepository.GetMovies(ctx, queryString)
 }
 
 func (m *movieService) UpdateMovie(ctx context.Context, id int64, input *dto.UpdateMovie) (*domain.Movie, error) {

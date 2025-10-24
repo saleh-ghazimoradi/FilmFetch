@@ -68,6 +68,33 @@ func (m *MovieHandler) GetMovieById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (m *MovieHandler) GetMovies(w http.ResponseWriter, r *http.Request) {
+	payload := &dto.QueryMovie{}
+
+	qs := r.URL.Query()
+	payload.Title = helper.ReadString(qs, "title", "")
+	payload.Genres = helper.ReadCSV(qs, "genres", []string{})
+	payload.Filters.Page = helper.ReadInt(qs, "page", 1, m.validator)
+	payload.Filters.PageSize = helper.ReadInt(qs, "page_size", 20, m.validator)
+	payload.Filters.Sort = helper.ReadString(qs, "sort", "id")
+	payload.Filters.SortSafeList = []string{"id", "title", "year", "runtime", "-id", "-title", "-year", "-runtime"}
+
+	if dto.ValidateFilters(m.validator, payload.Filters); !m.validator.Valid() {
+		m.customError.FailedValidationResponse(w, r, m.validator.Errors)
+		return
+	}
+
+	movies, metadata, err := m.movieService.GetMovies(r.Context(), payload)
+	if err != nil {
+		m.customError.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	if err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"movies": movies, "metadata": metadata}, nil); err != nil {
+		m.customError.ServerErrorResponse(w, r, err)
+	}
+}
+
 func (m *MovieHandler) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 	id, err := helper.ReadIdParam(r)
 	if err != nil {

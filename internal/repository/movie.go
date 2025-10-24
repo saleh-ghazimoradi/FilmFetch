@@ -4,14 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/lib/pq"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/domain"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/dto"
 	"time"
 )
 
 type MovieRepository interface {
 	CreateMovie(ctx context.Context, movie *domain.Movie) error
 	GetMovieById(ctx context.Context, id int64) (*domain.Movie, error)
+	GetMovies(ctx context.Context, queryString *dto.QueryMovie) ([]*domain.Movie, dto.Metadata, error)
 	UpdateMovie(ctx context.Context, movie *domain.Movie) (*domain.Movie, error)
 	DeleteMovie(ctx context.Context, id int64) error
 }
@@ -50,6 +53,54 @@ func (m *movieRepository) GetMovieById(ctx context.Context, id int64) (*domain.M
 		}
 	}
 	return &movie, nil
+}
+
+func (m *movieRepository) GetMovies(ctx context.Context, queryString *dto.QueryMovie) ([]*domain.Movie, dto.Metadata, error) {
+	query := fmt.Sprintf(`
+        SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
+        FROM movies
+        WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '') 
+        AND (genres @> $2 OR $2 = '{}')     
+        ORDER BY %s %s, id ASC
+        LIMIT $3 OFFSET $4`, queryString.Filters.SortColumn(), queryString.Filters.SortDirection())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	args := []any{queryString.Title, pq.Array(queryString.Genres), queryString.Filters.Limit(), queryString.Filters.Offset()}
+
+	rows, err := m.dbRead.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, dto.Metadata{}, err
+	}
+	defer rows.Close()
+
+	totalRecords := 0
+	var movies []*domain.Movie
+	for rows.Next() {
+		var movie domain.Movie
+		if err = rows.Scan(
+			&totalRecords,
+			&movie.Id,
+			&movie.CreatedAt,
+			&movie.Title,
+			&movie.Year,
+			&movie.Runtime,
+			pq.Array(&movie.Genres),
+			&movie.Version,
+		); err != nil {
+			return nil, dto.Metadata{}, err
+		}
+		movies = append(movies, &movie)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, dto.Metadata{}, err
+	}
+
+	metadata := dto.CalculateMetadata(totalRecords, queryString.Filters.Page, queryString.Filters.PageSize)
+
+	return movies, metadata, nil
 }
 
 func (m *movieRepository) UpdateMovie(ctx context.Context, movie *domain.Movie) (*domain.Movie, error) {

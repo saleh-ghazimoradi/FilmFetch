@@ -1,6 +1,8 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 type Movie struct {
 	Id        int64     `json:"id"`
