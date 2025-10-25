@@ -11,28 +11,28 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
-	Password  password  `json:"-"`
+	Password  Password  `json:"-"`
 	Activated bool      `json:"activated"`
 	Version   int       `json:"version"`
 }
 
-type password struct {
-	plaintext *string
-	hash      []byte
+type Password struct {
+	Plaintext *string
+	Hash      []byte
 }
 
-func (p *password) Set(plaintextPassword string) error {
+func (p *Password) Set(plaintextPassword string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(plaintextPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-	p.plaintext = &plaintextPassword
-	p.hash = hash
+	p.Plaintext = &plaintextPassword
+	p.Hash = hash
 	return nil
 }
 
-func (p *password) Matches(plaintextPassword string) (bool, error) {
-	if err := bcrypt.CompareHashAndPassword(p.hash, []byte(plaintextPassword)); err != nil {
+func (p *Password) Matches(plaintextPassword string) (bool, error) {
+	if err := bcrypt.CompareHashAndPassword(p.Hash, []byte(plaintextPassword)); err != nil {
 		switch {
 		case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
 			return false, nil
