@@ -12,6 +12,7 @@ type Register struct {
 	middleware   *middleware.Middleware
 	healthRoutes *HealthRoutes
 	movieRoutes  *MovieRoutes
+	userRoutes   *UserRoutes
 }
 
 type Options func(*Register)
@@ -40,6 +41,12 @@ func WithMovieRoutes(movieRoutes *MovieRoutes) Options {
 	}
 }
 
+func WithUserRoutes(userRoutes *UserRoutes) Options {
+	return func(r *Register) {
+		r.userRoutes = userRoutes
+	}
+}
+
 func (r *Register) RegisterRoutes() http.Handler {
 	router := httprouter.New()
 	router.NotFound = http.HandlerFunc(r.customError.NotFoundResponse)
@@ -47,6 +54,7 @@ func (r *Register) RegisterRoutes() http.Handler {
 
 	r.healthRoutes.HealthRoute(router)
 	r.movieRoutes.MovieRoute(router)
+	r.userRoutes.UserRoutes(router)
 
 	return r.middleware.RecoverPanic(r.middleware.RateLimit(router))
 }

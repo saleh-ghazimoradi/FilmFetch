@@ -10,7 +10,6 @@ import (
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/repository"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/server"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/service"
-	"github.com/saleh-ghazimoradi/FilmFetch/internal/validator"
 	"github.com/saleh-ghazimoradi/FilmFetch/utils"
 	"log/slog"
 	"os"
@@ -61,19 +60,23 @@ var httpCmd = &cobra.Command{
 
 		customError := helper.NewCustomErr(logger)
 		middleWare := middleware.NewMiddleware(cfg, customError)
-		validate := validator.NewValidator()
 		healthHandler := handlers.NewHealthHandler(cfg, logger, customError)
 		healthRoutes := routes.NewHealthRoute(healthHandler)
 		movieRepository := repository.NewMovieRepository(db, db)
 		movieService := service.NewMovieService(movieRepository)
-		movieHandler := handlers.NewMovieHandler(logger, customError, validate, movieService)
+		movieHandler := handlers.NewMovieHandler(logger, customError, movieService)
 		movieRoutes := routes.NewMovieRoutes(movieHandler)
+		userRepository := repository.NewUserRepository(db, db)
+		userService := service.NewUserService(userRepository)
+		userHandler := handlers.NewUserHandler(customError, userService)
+		userRoutes := routes.NewUserRoutes(userHandler)
 
 		registerRoutes := routes.NewRegister(
 			routes.WithCustomError(customError),
 			routes.WithMiddleware(middleWare),
 			routes.WithHealthRoutes(healthRoutes),
 			routes.WithMovieRoutes(movieRoutes),
+			routes.WithUserRoutes(userRoutes),
 		)
 
 		httpServer := server.NewServer(
