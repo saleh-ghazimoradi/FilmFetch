@@ -15,7 +15,6 @@ import (
 type MovieHandler struct {
 	logger       *slog.Logger
 	customError  *helper.CustomError
-	validator    *validator.Validator
 	movieService service.MovieService
 }
 
@@ -26,8 +25,10 @@ func (m *MovieHandler) CreateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if dto.ValidateMovie(m.validator, payload); !m.validator.Valid() {
-		m.customError.FailedValidationResponse(w, r, m.validator.Errors)
+	v := validator.NewValidator()
+	dto.ValidateMovie(v, payload)
+	if !v.Valid() {
+		m.customError.FailedValidationResponse(w, r, v.Errors)
 		return
 	}
 
@@ -70,17 +71,19 @@ func (m *MovieHandler) GetMovieById(w http.ResponseWriter, r *http.Request) {
 
 func (m *MovieHandler) GetMovies(w http.ResponseWriter, r *http.Request) {
 	payload := &dto.QueryMovie{}
+	v := validator.NewValidator()
 
 	qs := r.URL.Query()
 	payload.Title = helper.ReadString(qs, "title", "")
 	payload.Genres = helper.ReadCSV(qs, "genres", []string{})
-	payload.Filters.Page = helper.ReadInt(qs, "page", 1, m.validator)
-	payload.Filters.PageSize = helper.ReadInt(qs, "page_size", 20, m.validator)
+	payload.Filters.Page = helper.ReadInt(qs, "page", 1, v)
+	payload.Filters.PageSize = helper.ReadInt(qs, "page_size", 20, v)
 	payload.Filters.Sort = helper.ReadString(qs, "sort", "id")
 	payload.Filters.SortSafeList = []string{"id", "title", "year", "runtime", "-id", "-title", "-year", "-runtime"}
 
-	if dto.ValidateFilters(m.validator, payload.Filters); !m.validator.Valid() {
-		m.customError.FailedValidationResponse(w, r, m.validator.Errors)
+	dto.ValidateFilters(v, payload.Filters)
+	if !v.Valid() {
+		m.customError.FailedValidationResponse(w, r, v.Errors)
 		return
 	}
 
@@ -108,8 +111,10 @@ func (m *MovieHandler) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if dto.ValidateUpdateMovie(m.validator, payload); !m.validator.Valid() {
-		m.customError.FailedValidationResponse(w, r, m.validator.Errors)
+	v := validator.NewValidator()
+	dto.ValidateUpdateMovie(v, payload)
+	if !v.Valid() {
+		m.customError.FailedValidationResponse(w, r, v.Errors)
 		return
 	}
 
@@ -151,11 +156,10 @@ func (m *MovieHandler) DeleteMovie(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewMovieHandler(logger *slog.Logger, customError *helper.CustomError, validator *validator.Validator, movieService service.MovieService) *MovieHandler {
+func NewMovieHandler(logger *slog.Logger, customError *helper.CustomError, movieService service.MovieService) *MovieHandler {
 	return &MovieHandler{
 		logger:       logger,
 		customError:  customError,
-		validator:    validator,
 		movieService: movieService,
 	}
 }
