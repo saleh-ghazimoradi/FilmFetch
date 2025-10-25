@@ -1,9 +1,14 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -71,9 +76,30 @@ func (s *Server) Connect() error {
 		WriteTimeout: s.WriteTimeout,
 		ErrorLog:     s.ErrorLog,
 	}
-	if err := server.ListenAndServe(); err != nil {
+
+	shutdownError := make(chan error)
+
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		se := <-quit
+		log.Println("caught signal", "signal", se.String())
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		shutdownError <- server.Shutdown(ctx)
+	}()
+
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+
+	if err := <-shutdownError; err != nil {
+		return err
+	}
+
+	log.Println("Stopped server", "addr", server.Addr)
+
 	return nil
 }
 
