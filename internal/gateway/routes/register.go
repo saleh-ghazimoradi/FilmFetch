@@ -48,7 +48,7 @@ func (r *Register) RegisterRoutes() http.Handler {
 	r.healthRoutes.HealthRoute(router)
 	r.movieRoutes.MovieRoute(router)
 
-	return r.middleware.RecoverPanic(router)
+	return r.middleware.RecoverPanic(r.middleware.RateLimit(router))
 }
 
 func NewRegister(opts ...Options) *Register {

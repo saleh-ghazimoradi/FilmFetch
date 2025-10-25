@@ -15,6 +15,7 @@ type Config struct {
 	Server      Server
 	Postgresql  Postgresql
 	Application Application
+	RateLimiter RateLimiter
 }
 
 func NewConfig() (*Config, error) {

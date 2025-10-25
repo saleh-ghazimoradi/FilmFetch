@@ -56,6 +56,11 @@ func (c *CustomError) EditConflictResponse(w http.ResponseWriter, r *http.Reques
 	c.ErrorResponse(w, r, http.StatusConflict, message)
 }
 
+func (c *CustomError) RateLimitExceededResponse(w http.ResponseWriter, r *http.Request) {
+	message := "rate limit exceeded, please try again"
+	c.ErrorResponse(w, r, http.StatusTooManyRequests, message)
+}
+
 func NewCustomErr(logger *slog.Logger) *CustomError {
 	return &CustomError{
 		logger: logger,

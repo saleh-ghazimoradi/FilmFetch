@@ -60,7 +60,7 @@ var httpCmd = &cobra.Command{
 		}()
 
 		customError := helper.NewCustomErr(logger)
-		middleWare := middleware.NewMiddleware(customError)
+		middleWare := middleware.NewMiddleware(cfg, customError)
 		validate := validator.NewValidator()
 		healthHandler := handlers.NewHealthHandler(cfg, logger, customError)
 		healthRoutes := routes.NewHealthRoute(healthHandler)
