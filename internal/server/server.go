@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/helper"
 	"log"
 	"net/http"
 	"os"
@@ -87,7 +88,15 @@ func (s *Server) Connect() error {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		shutdownError <- server.Shutdown(ctx)
+
+		err := server.Shutdown(ctx)
+		if err != nil {
+			shutdownError <- err
+		}
+
+		log.Println("completing background tasks", "addr", server.Addr)
+		helper.WG.Wait()
+		shutdownError <- nil
 	}()
 
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

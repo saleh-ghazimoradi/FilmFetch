@@ -11,8 +11,11 @@ import (
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/server"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/service"
 	"github.com/saleh-ghazimoradi/FilmFetch/utils"
+	"github.com/saleh-ghazimoradi/FilmFetch/utils/email"
+	"github.com/wneessen/go-mail"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -58,6 +61,28 @@ var httpCmd = &cobra.Command{
 			}
 		}()
 
+		clientMail, err := mail.NewClient(
+			cfg.Mail.Host,
+			mail.WithSMTPAuth(mail.SMTPAuthLogin),
+			mail.WithPort(cfg.Mail.Port),
+			mail.WithUsername(cfg.Mail.Username),
+			mail.WithPassword(cfg.Mail.Password),
+			mail.WithTimeout(5*time.Second),
+		)
+		if err != nil {
+			logger.Error(err.Error())
+			os.Exit(1)
+		}
+
+		mailer := email.NewMailSender(
+			email.WithClient(clientMail),
+			email.WithHost(cfg.Mail.Host),
+			email.WithPort(cfg.Mail.Port),
+			email.WithUsername(cfg.Mail.Username),
+			email.WithPassword(cfg.Mail.Password),
+			email.WithSender(cfg.Mail.Sender),
+		)
+
 		customError := helper.NewCustomErr(logger)
 		middleWare := middleware.NewMiddleware(cfg, customError)
 		healthHandler := handlers.NewHealthHandler(cfg, logger, customError)
@@ -68,7 +93,7 @@ var httpCmd = &cobra.Command{
 		movieRoutes := routes.NewMovieRoutes(movieHandler)
 		userRepository := repository.NewUserRepository(db, db)
 		userService := service.NewUserService(userRepository)
-		userHandler := handlers.NewUserHandler(customError, userService)
+		userHandler := handlers.NewUserHandler(customError, userService, mailer, logger)
 		userRoutes := routes.NewUserRoutes(userHandler)
 
 		registerRoutes := routes.NewRegister(

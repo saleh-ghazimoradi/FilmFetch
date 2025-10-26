@@ -7,12 +7,16 @@ import (
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/repository"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/service"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/validator"
+	"github.com/saleh-ghazimoradi/FilmFetch/utils/email"
+	"log/slog"
 	"net/http"
 )
 
 type UserHandler struct {
 	customErr   *helper.CustomError
 	userService service.UserService
+	mailService email.MailSender
+	logger      *slog.Logger
 }
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -42,14 +46,22 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = helper.WriteJSON(w, http.StatusCreated, helper.Envelope{"user": user}, nil); err != nil {
+	helper.Background(func() {
+		if err := u.mailService.Send(user.Email, "user_welcome.tmpl", user); err != nil {
+			u.logger.Error(err.Error())
+		}
+	})
+
+	if err = helper.WriteJSON(w, http.StatusAccepted, helper.Envelope{"user": user}, nil); err != nil {
 		u.customErr.ServerErrorResponse(w, r, err)
 	}
 }
 
-func NewUserHandler(customErr *helper.CustomError, userService service.UserService) *UserHandler {
+func NewUserHandler(customErr *helper.CustomError, userService service.UserService, mailService email.MailSender, logger *slog.Logger) *UserHandler {
 	return &UserHandler{
 		customErr:   customErr,
 		userService: userService,
+		mailService: mailService,
+		logger:      logger,
 	}
 }

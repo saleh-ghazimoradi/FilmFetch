@@ -10,3 +10,11 @@ type RateLimiter struct {
 	Burst   int     `env:"BURST"`
 	Enabled bool    `env:"ENABLED"`
 }
+
+type Mail struct {
+	Host     string `env:"MAIL_HOST"`
+	Port     int    `env:"MAIL_PORT"`
+	Username string `env:"MAIL_USERNAME"`
+	Password string `env:"MAIL_PASSWORD"`
+	Sender   string `env:"MAIL_SENDER"`
+}
