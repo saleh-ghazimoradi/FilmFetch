@@ -95,7 +95,7 @@ func (p *Postgresql) Connect() (*sql.DB, error) {
 
 	db.SetMaxOpenConns(p.MaxOpenConn)
 	db.SetMaxIdleConns(p.MaxIdleConn)
-	db.SetConnMaxLifetime(p.MaxIdleTime)
+	db.SetConnMaxIdleTime(p.MaxIdleTime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), p.Timeout)
 	defer cancel()
