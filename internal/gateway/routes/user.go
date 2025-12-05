@@ -12,6 +12,7 @@ type UserRoutes struct {
 
 func (u *UserRoutes) UserRoutes(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodPost, "/v1/users", u.userHandler.CreateUser)
+	router.HandlerFunc(http.MethodPut, "/v1/users/activated", u.userHandler.ActivateUser)
 }
 
 func NewUserRoutes(userHandler *handlers.UserHandler) *UserRoutes {

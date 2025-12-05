@@ -85,15 +85,21 @@ var httpCmd = &cobra.Command{
 
 		customError := helper.NewCustomErr(logger)
 		middleWare := middleware.NewMiddleware(cfg, customError)
+
 		healthHandler := handlers.NewHealthHandler(cfg, logger, customError)
 		healthRoutes := routes.NewHealthRoute(healthHandler)
+
 		movieRepository := repository.NewMovieRepository(db, db)
 		movieService := service.NewMovieService(movieRepository)
 		movieHandler := handlers.NewMovieHandler(logger, customError, movieService)
 		movieRoutes := routes.NewMovieRoutes(movieHandler)
+
 		userRepository := repository.NewUserRepository(db, db)
+		tokenRepository := repository.NewTokenRepository(db, db)
+		tokenService := service.NewTokenService(tokenRepository, userRepository)
 		userService := service.NewUserService(userRepository)
-		userHandler := handlers.NewUserHandler(customError, userService, mailer, logger)
+		userHandler := handlers.NewUserHandler(customError, userService, tokenService, mailer, logger)
+
 		userRoutes := routes.NewUserRoutes(userHandler)
 
 		registerRoutes := routes.NewRegister(

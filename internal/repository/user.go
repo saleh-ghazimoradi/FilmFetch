@@ -44,7 +44,6 @@ func (u *userRepository) GetUserByEmail(ctx context.Context, email string) (*dom
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-
 	if err := u.dbRead.QueryRowContext(ctx, query, email).Scan(
 		&user.Id,
 		&user.CreatedAt,

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"github.com/saleh-ghazimoradi/FilmFetch/internal/domain"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/dto"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/helper"
 	"github.com/saleh-ghazimoradi/FilmFetch/internal/repository"
@@ -10,13 +11,15 @@ import (
 	"github.com/saleh-ghazimoradi/FilmFetch/utils/email"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 type UserHandler struct {
-	customErr   *helper.CustomError
-	userService service.UserService
-	mailService email.MailSender
-	logger      *slog.Logger
+	customErr    *helper.CustomError
+	userService  service.UserService
+	tokenService service.TokenService
+	mailService  email.MailSender
+	logger       *slog.Logger
 }
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -46,8 +49,19 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := u.tokenService.Tokenize(r.Context(), user.Id, 3*24*time.Hour, domain.ScopeActivation)
+	if err != nil {
+		u.customErr.ServerErrorResponse(w, r, err)
+		return
+	}
+
 	helper.Background(func() {
-		if err := u.mailService.Send(user.Email, "user_welcome.tmpl", user); err != nil {
+		data := map[string]any{
+			"activationToken": token.Plaintext,
+			"userId":          user.Id,
+		}
+
+		if err := u.mailService.Send(user.Email, "user_welcome.tmpl", data); err != nil {
 			u.logger.Error(err.Error())
 		}
 	})
@@ -57,11 +71,48 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewUserHandler(customErr *helper.CustomError, userService service.UserService, mailService email.MailSender, logger *slog.Logger) *UserHandler {
+func (u *UserHandler) ActivateUser(w http.ResponseWriter, r *http.Request) {
+	var payload *dto.ActivateUser
+
+	if err := helper.ReadJSON(w, r, &payload); err != nil {
+		u.customErr.BadRequestResponse(w, r, err)
+		return
+	}
+
+	v := validator.NewValidator()
+	dto.ValidateTokenPlaintext(v, payload)
+	if !v.Valid() {
+		u.customErr.FailedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	user, err := u.tokenService.ActivateUser(r.Context(), payload)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrRecordNotFound):
+			v.AddError("token", "invalid or expired activation token")
+			u.customErr.FailedValidationResponse(w, r, v.Errors)
+		case errors.Is(err, repository.ErrEditConflict):
+			u.customErr.EditConflictResponse(w, r)
+		case err != nil && err.Error() == "validation failed":
+			u.customErr.FailedValidationResponse(w, r, v.Errors)
+		default:
+			u.customErr.ServerErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	if err := helper.WriteJSON(w, http.StatusOK, helper.Envelope{"user": user}, nil); err != nil {
+		u.customErr.ServerErrorResponse(w, r, err)
+	}
+}
+
+func NewUserHandler(customErr *helper.CustomError, userService service.UserService, tokenService service.TokenService, mailService email.MailSender, logger *slog.Logger) *UserHandler {
 	return &UserHandler{
-		customErr:   customErr,
-		userService: userService,
-		mailService: mailService,
-		logger:      logger,
+		customErr:    customErr,
+		userService:  userService,
+		tokenService: tokenService,
+		mailService:  mailService,
+		logger:       logger,
 	}
 }
